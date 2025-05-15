@@ -1,61 +1,107 @@
 
 import { DocumentMetadata, SearchResult } from "../types/document";
 
-// This is a mock service that simulates interaction with Elasticsearch
-// In a real application, this would make actual API calls to your Elasticsearch instance
+// Connect to the real Elasticsearch instance
+const elasticSearchUrl = "http://192.168.102.99:9200";
+
 export const elasticSearchService = {
   uploadDocument: async (file: File, metadata: Partial<DocumentMetadata>): Promise<boolean> => {
-    // In a real implementation, this would:
-    // 1. Convert the Word document to text (possibly using a backend service)
-    // 2. Send the document content and metadata to Elasticsearch
-    
-    console.log("Simulating document upload to Elasticsearch:", file.name, metadata);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return true;
+    try {
+      console.log("Uploading document to Elasticsearch:", file.name, metadata);
+      
+      // Read the file content
+      const fileContent = await file.arrayBuffer();
+      const base64Content = btoa(
+        new Uint8Array(fileContent).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+      
+      // Prepare the document data
+      const documentData = {
+        content: base64Content, // Base64 encoded file content
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        metadata: {
+          ...metadata,
+          uploadedAt: new Date().toISOString()
+        }
+      };
+      
+      // Send the document to Elasticsearch
+      const response = await fetch(`${elasticSearchUrl}/documents/_doc`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(documentData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to upload document: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log("Document uploaded successfully:", result);
+      
+      return true;
+    } catch (error) {
+      console.error("Error uploading document to Elasticsearch:", error);
+      throw error;
+    }
   },
   
   searchDocuments: async (query: string): Promise<SearchResult[]> => {
-    // In a real implementation, this would:
-    // 1. Send the search query to Elasticsearch
-    // 2. Process and return the results
-    
-    console.log("Simulating Elasticsearch query:", query);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Return mock results for demonstration
-    if (!query.trim()) return [];
-    
-    // Create some mock Arabic content for demonstration
-    const arabicLoremIpsum = "هذا نص عربي يحتوي على بعض الكلمات للبحث. يمكن استبدال هذا النص بمحتوى حقيقي من وثائق الوورد العربية المخزنة في إيلاستك سيرش.";
-    
-    return [
-      {
-        id: "doc1",
-        content: arabicLoremIpsum + " " + query,
-        metadata: {
-          creator: "أحمد محمد",
-          creationTime: "2023-04-15T10:30:00",
-          lastModified: "2023-05-20T14:22:00",
-          fileName: "تقرير_شهري.docx"
+    try {
+      if (!query.trim()) return [];
+      
+      console.log("Searching Elasticsearch for:", query);
+      
+      // Prepare the search query
+      const searchQuery = {
+        query: {
+          multi_match: {
+            query: query,
+            fields: ["content", "metadata.*"]
+          },
+          highlight: {
+            fields: {
+              content: {}
+            }
+          }
+        }
+      };
+      
+      // Send the search request to Elasticsearch
+      const response = await fetch(`${elasticSearchUrl}/documents/_search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        highlights: [`... يحتوي على بعض <mark>${query}</mark> للبحث ...`]
-      },
-      {
-        id: "doc2",
-        content: arabicLoremIpsum.replace("بعض", query),
-        metadata: {
-          creator: "سارة أحمد",
-          creationTime: "2023-06-10T09:15:00",
-          lastModified: "2023-06-10T09:15:00",
-          fileName: "ملخص_اجتماع.docx"
-        },
-        highlights: [`... عربي يحتوي على <mark>${query}</mark> الكلمات ...`]
+        body: JSON.stringify(searchQuery)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.statusText}`);
       }
-    ];
+      
+      const result = await response.json();
+      console.log("Search results:", result);
+      
+      // Transform the Elasticsearch response to our application format
+      return result.hits.hits.map((hit: any) => ({
+        id: hit._id,
+        content: hit._source.content,
+        metadata: {
+          creator: hit._source.metadata?.creator || "غير معروف",
+          creationTime: hit._source.metadata?.creationTime || hit._source.metadata?.uploadedAt,
+          lastModified: hit._source.metadata?.lastModified || hit._source.metadata?.uploadedAt,
+          fileName: hit._source.fileName || "بلا اسم"
+        },
+        highlights: hit.highlight?.content || []
+      }));
+    } catch (error) {
+      console.error("Error searching documents in Elasticsearch:", error);
+      throw error;
+    }
   }
 };
