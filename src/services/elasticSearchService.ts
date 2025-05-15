@@ -65,12 +65,11 @@ export const elasticSearchService = {
       
       console.log("Searching Elasticsearch for:", query);
       
-      // Prepare the search query - modified to match our document structure
+      // Prepare the search query - modified to match the example format
       const searchQuery = {
         query: {
-          multi_match: {
-            query: query,
-            fields: ["body", "metadata.*", "filename"]
+          match: {
+            body: query
           }
         },
         highlight: {
