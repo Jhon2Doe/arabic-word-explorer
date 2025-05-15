@@ -3,6 +3,7 @@ import { DocumentMetadata, SearchResult } from "../types/document";
 
 // Connect to the real Elasticsearch instance
 const elasticSearchUrl = "http://192.168.102.99:9200";
+const clusterName = "linkedin";
 
 export const elasticSearchService = {
   uploadDocument: async (file: File, metadata: Partial<DocumentMetadata>): Promise<boolean> => {
@@ -23,7 +24,8 @@ export const elasticSearchService = {
         fileSize: file.size,
         metadata: {
           ...metadata,
-          uploadedAt: new Date().toISOString()
+          uploadedAt: new Date().toISOString(),
+          cluster_name: clusterName
         }
       };
       
@@ -32,6 +34,7 @@ export const elasticSearchService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Cluster-Name': clusterName
         },
         body: JSON.stringify(documentData)
       });
@@ -62,11 +65,11 @@ export const elasticSearchService = {
           multi_match: {
             query: query,
             fields: ["content", "metadata.*"]
-          },
-          highlight: {
-            fields: {
-              content: {}
-            }
+          }
+        },
+        highlight: {
+          fields: {
+            content: {}
           }
         }
       };
@@ -76,6 +79,7 @@ export const elasticSearchService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Cluster-Name': clusterName
         },
         body: JSON.stringify(searchQuery)
       });
