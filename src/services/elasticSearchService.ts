@@ -6,6 +6,15 @@ const elasticSearchUrl = "http://192.168.102.99:9200";
 const clusterName = "linkedin";
 const indexName = "word_documents";
 
+// Common headers for all requests to handle CORS
+const getHeaders = () => ({
+  'Content-Type': 'application/json',
+  'X-Cluster-Name': clusterName,
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Cluster-Name'
+});
+
 export const elasticSearchService = {
   uploadDocument: async (file: File, metadata: Partial<DocumentMetadata>): Promise<boolean> => {
     try {
@@ -35,14 +44,12 @@ export const elasticSearchService = {
         }
       };
       
-      // Send the document to Elasticsearch
+      // Send the document to Elasticsearch with CORS headers
       const response = await fetch(`${elasticSearchUrl}/${indexName}/_doc/${docId}`, {
         method: 'PUT', // Using PUT with specific ID like in Python example
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Cluster-Name': clusterName
-        },
-        body: JSON.stringify(documentData)
+        headers: getHeaders(),
+        body: JSON.stringify(documentData),
+        mode: 'cors'
       });
       
       if (!response.ok) {
@@ -79,14 +86,12 @@ export const elasticSearchService = {
         }
       };
       
-      // Send the search request to Elasticsearch
+      // Send the search request to Elasticsearch with CORS headers
       const response = await fetch(`${elasticSearchUrl}/${indexName}/_search`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Cluster-Name': clusterName
-        },
-        body: JSON.stringify(searchQuery)
+        headers: getHeaders(),
+        body: JSON.stringify(searchQuery),
+        mode: 'cors'
       });
       
       if (!response.ok) {
